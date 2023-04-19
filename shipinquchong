@@ -1,0 +1,47 @@
+import cv2
+import numpy as np
+
+# 视频添加帧噪音(去重)
+# 读取输入视频文件并获取其属性
+input_video = cv2.VideoCapture("test1094291646.mp4")
+fps = input_video.get(cv2.CAP_PROP_FPS)
+frame_width = int(input_video.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(input_video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+num_frames = int(input_video.get(cv2.CAP_PROP_FRAME_COUNT))
+
+# 使用第一个帧创建背景模型
+ret, frame = input_video.read()
+background_model = cv2.createBackgroundSubtractorMOG2()
+background_model.apply(frame)
+
+# 创建输出视频文件
+output_video = cv2.VideoWriter("output.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+
+# 处理每个帧
+for i in range(num_frames):
+    # 读取下一帧
+    ret, frame = input_video.read()
+    if not ret:
+        break
+
+    # 检测前景区域
+    foreground_mask = background_model.apply(frame)
+
+    # 移除小的噪声点
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    foreground_mask = cv2.morphologyEx(foreground_mask, cv2.MORPH_OPEN, kernel)
+
+    # 将前景区域与原始图像相乘以移除字幕
+    processed_frame = cv2.bitwise_and(frame, frame, mask=foreground_mask)
+
+    # 将处理后的帧写入输出视频文件
+    output_video.write(processed_frame)
+
+    # 显示处理后的帧
+    cv2.imshow("Processed Frame", processed_frame)
+    cv2.waitKey(int(1000/fps))
+
+# 释放资源
+input_video.release()
+output_video.release()
+cv2.destroyAllWindows()
